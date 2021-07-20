@@ -48,8 +48,8 @@ It is worth noting that "using filenames" and "saving filenames" should not be t
 {synopt :{opth d:elete(strings:string)}}Can delete extra spaces(by {bf:extra_space} or {bf:es}) or extra lines(by {bf:blank_lines} or {bf:bl}).{p_end}
 {synopt :{opt re:gex}}Choose to use regex mode to match and substitute. If this option is not set, the normal mode will be used by default.{p_end}
 {synopt :{opt qui:etly}}Do not output the command execution result to the Stata interface.{p_end}
-{synopt :{opt replace}}Replace the {bf:saving} file if the {bf:saving} file exists.{p_end}
-{synopt :{opt append}}Append the {bf:saving} file if the {bf:saving} file exists.{p_end}
+{synopt :{opt replace}}Replace the "saving file" if the "saving file" exists.{p_end}
+{synopt :{opt append}}Append the "saving file" if the "saving file" exists.{p_end}
 {synoptline}
 
 
