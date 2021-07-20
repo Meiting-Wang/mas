@@ -1,4 +1,4 @@
-* Description: A main program in mas.ado, is to perform query and replace operations on text files
+* Description: This is a sub-program for mas.ado, aim at performing matching and substituting operations on text files.
 * Author: Meiting Wang, doctor, Institute for Economic and Social Research, Jinan University
 * Email: wangmeiting92@gmail.com
 * Created on July 15, 2021

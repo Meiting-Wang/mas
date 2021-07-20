@@ -1,4 +1,4 @@
-* Description: perform query and replace operations on text files and it has a sub-program which name is mas_main.ado
+* Description: Perform matching and substituting operations on text files and it has a sub-program which name is mas_main.ado
 * Author: Meiting Wang, doctor, Institute for Economic and Social Research, Jinan University
 * Email: wangmeiting92@gmail.com
 * Created on July 15, 2021
