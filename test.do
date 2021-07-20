@@ -1,5 +1,7 @@
 cls
 cap pr drop _all
+cap mkdir mydir1
+cap mkdir mydir2
 
 // set trace on
 *----------------单个文件测试---------------
