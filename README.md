@@ -58,6 +58,8 @@ mas using filenames, saving(filenames) match(string) substitute(string) [lines(n
 - `replace`：如果`saving(filenames)`中的文件名已存在，则替换之。
 - `append`：如果`saving(filenames)`中的文件名已存在，则附加之。
 
+> 该命令的部分选项可以缩写，详情可以在安装完命令之后`help mas`。
+
 ## 四、实例
 
 ```stata
