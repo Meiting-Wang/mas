@@ -41,7 +41,7 @@ It is worth noting that "using filenames" and "saving filenames" should not be t
 {synoptset 20}{...}
 {synopthdr}
 {synoptline}
-{synopt :{opth saving:(filenames)}}Set the filenames to be written, which supports wildcards and paths. If {bf:using} includes multiple files, this option should use {opth pre:(strings:string)} or {opth post:(strings:string)} sub-options, such as {bf:saving(,pre(pre_))}.{p_end}
+{synopt :{opth saving:(filenames)}}Set the filenames to be written, which supports paths. If {bf:using} includes multiple files, this option should use {opth pre:(strings:string)} or {opth post:(strings:string)} sub-options, such as {bf:saving(,pre(pre_))}.{p_end}
 {synopt :{opth m:atch(strings:string)}}Set the content to be matched. One or more items are supported. If there are more than one item, each item needs to be surrounded by double quotation marks.{p_end}
 {synopt :{opth s:ubstitute(strings:string)}}Set the content to replace match items, and the number of this option items should be equal to the the number of {opt match} items. If there are more than one item, each item needs to be surrounded by double quotation marks.{p_end}
 {synopt :{opth l:ines(numlist)}}Select specific lines to be operated{p_end}
