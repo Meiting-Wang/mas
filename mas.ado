@@ -1,7 +1,8 @@
 * Description: Perform matching and substituting operations on text files and it has a sub-program which name is mas_main.ado
 * Author: Meiting Wang, doctor, Institute for Economic and Social Research, Jinan University
 * Email: wangmeiting92@gmail.com
-* Created on July 15, 2021
+* Created on July 18, 2021
+* Updated on July 25, 2021
 
 
 
@@ -9,13 +10,14 @@ program define mas, rclass
 version 16.0
 
 syntax using/, saving(string asis) ///
-	Match(passthru) Substitute(passthru) ///
-	[replace append Lines(passthru) ///
-	Delete(passthru) REgex QUIetly]
+	[Match(passthru) Substitute(passthru) ///
+	replace append Lines(passthru) Keepall ///
+	Delete(passthru) REgex Brief QUIetly]
 /*
 *****编程注意事项
-- 子程序 mas_main.ado 有对 match、substitute、lines、delete、replace、append 选项语法的判断，所以主程序无需对它们的语法进行正误判断
+- 子程序 mas_main.ado 有对 match、substitute、lines、keepall、delete、replace、append 选项语法的判断，所以主程序无需对它们的语法进行正误判断
 - `raw_dirname' `pre_str_pdot' `pre_str_pndot' 的设定都是为了解决 Stata 字符串中 \ 有时会消失的bug
+- 子程序 mas_del.ado 用于只是删除空行或多余空格的情形
 */
 
 
@@ -106,7 +108,7 @@ forvalues i = 1/`using_num' {
 	local saving`i' = ustrregexra("`raw_saving`i''","^.+(/|\\)","")
 	local saving_str `"`saving_str'"`saving`i''" "'
 	local raw_saving_str `"`raw_saving_str'"`raw_saving`i''" "'
-} //生成saving1-saving...
+} //生成saving1-saving...(不含有双引号)
 local saving_str = strtrim(`"`saving_str'"')
 local raw_saving_str = strtrim(`"`raw_saving_str'"')
 
@@ -117,16 +119,30 @@ if ustrregexm(`"`saving_str'"',`"("\w.*\w").+?\1"') {
 
 
 *--------------------主程序----------------------
-* 文件内容的查找与替换
-local lines_total_change_num_str "" //用于在整体上记录各个文件内容发生变化的行数
-forvalues i = 1/`using_num' {
-	mas_main using "`raw_using`i''", saving("`raw_saving`i''") `match' `substitute' `replace' `append' `lines' `delete' `regex'
-	local lines_changed_for_original`i' "`r(lines_changed_for_original)'" //返回第`i'个文件内容发生变化的具体行数(应对于原文件)
-	local lines_changed_for_generated`i' "`r(lines_changed_for_generated)'" //返回第`i'个文件内容发生变化的具体行数(应对于生成文件)
-	local lines_total_change_num`i' = `r(lines_total_change_num)' //返回第`i'个文件被更改内容的总行数
-	local lines_total_change_num_str "`lines_total_change_num_str'`lines_total_change_num`i'' "
+if (`"`match'"' != "") | (`"`substitute'"' != "") { //含有match和substitute的请况
+	* 文件内容的查找与替换
+	local lines_total_change_num_str "" //用于在整体上记录各个文件内容发生变化的行数
+	forvalues i = 1/`using_num' {
+		mas_main using "`raw_using`i''", saving("`raw_saving`i''") `match' `substitute' `replace' `append' `lines' `keepall' `delete' `regex'
+		local lines_changed_for_original`i' "`r(lines_changed_for_original)'" //返回第`i'个文件内容发生变化的具体行数(应对于原文件)
+		local lines_changed_for_generated`i' "`r(lines_changed_for_generated)'" //返回第`i'个文件内容发生变化的具体行数(应对于生成文件)
+		local lines_total_change_num`i' = `r(lines_total_change_num)' //返回第`i'个文件被更改内容的总行数
+		local lines_total_change_num_str "`lines_total_change_num_str'`lines_total_change_num`i'' "
+	}
+	local lines_total_change_num_str = strtrim("`lines_total_change_num_str'")
 }
-local lines_total_change_num_str = strtrim("`lines_total_change_num_str'")
+else if `"`delete'"' != "" { //只有delete的情况
+	forvalues i = 1/`using_num' {
+		mas_del using "`raw_using`i''", saving("`raw_saving`i''") `delete' `replace' `append' `lines' `keepall'
+	}
+}
+else { //既没有match也没有delete的情况
+	forvalues i = 1/`using_num' {
+		mas_coa using "`raw_using`i''", saving("`raw_saving`i''") `replace' `append' `lines'
+	}
+}
+
+
 
 
 *---------------------返回值---------------------
@@ -139,75 +155,100 @@ return local using_dir "`dirname'"
 
 
 *-----------------------结果的输出--------------------
-if "`quietly'" != "" {
+if ("`quietly'" != "") {
 	exit
 } //如果含有 quietly 选项，则不输出以下结果
 
 
-*查找与替换组别输出
-local match = ustrregexra(`"`match'"',"(^match\(\s*)|(\s*\)$)","")
-local substitute = ustrregexra(`"`substitute'"',"(^substitute\(\s*)|(\s*\)$)","")
-if ~ustrregexm(`"`match'"',`"""') {
-	local match `""`match'""'
+if `"`match'"' != "" {
+	*查找与替换组别输出
+	local match = ustrregexra(`"`match'"',"(^match\(\s*)|(\s*\)$)","")
+	local substitute = ustrregexra(`"`substitute'"',"(^substitute\(\s*)|(\s*\)$)","")
+	if ~ustrregexm(`"`match'"',`"""') {
+		local match `""`match'""'
+	}
+	if ~ustrregexm(`"`substitute'"',`"""') {
+		local substitute `""`substitute'""'
+	}
+	local groups_of_match = ustrlen(ustrregexra(`"`match'"',`"[^"]"',"")) / 2
+
+	local i = 1
+	local match_len_str ""
+	foreach s of local match {
+		local match`i' "`s'"
+		local match_len_str `"`match_len_str'`=ustrlen("`match`i''")', "'
+		local i = `i' + 1
+	} //提取 match1-match...
+	local match_len_str = ustrregexra(`"`match_len_str'"',"\, $","")
+
+	if `groups_of_match' == 1 {
+		local matchi_len_max = ustrlen("`match1'")
+	}
+	else {
+		local matchi_len_max = max(`match_len_str')
+	} //计算match`i'最大length
+
+	local col1 = 10+`matchi_len_max'+5
+	local col2 = `col1' + 5
+
+	local i = 1
+	foreach s of local substitute {
+		local substitute`i' "`s'"
+		local i = `i' + 1
+	} //提取 substitute1-substitute...
+
+	dis as text _n "{hline}"
+	dis as text `"{bf:Match and substitute information(`=cond(`=strmatch("`regex'","regex")',"regex mode","normal mode")')}"'
+	dis as text "{hline}"
+	forvalues i = 1/`groups_of_match' {
+		dis as text `"group`i': {result:"`match`i''"}{col `col1'}→{col `col2'}{result:"`substitute`i''"}"'
+	}
+	dis as text "{hline}" _n
 }
-if ~ustrregexm(`"`substitute'"',`"""') {
-	local substitute `""`substitute'""'
-}
-local groups_of_match = ustrlen(ustrregexra(`"`match'"',`"[^"]"',"")) / 2
-
-local i = 1
-local match_len_str ""
-foreach s of local match {
-	local match`i' "`s'"
-	local match_len_str `"`match_len_str'`=ustrlen("`match`i''")', "'
-	local i = `i' + 1
-} //提取 match1-match...
-local match_len_str = ustrregexra(`"`match_len_str'"',"\, $","")
-
-if `groups_of_match' == 1 {
-	local matchi_len_max = ustrlen("`match1'")
-}
-else {
-	local matchi_len_max = max(`match_len_str')
-} //计算match`i'最大length
-
-local col1 = 10+`matchi_len_max'+5
-local col2 = `col1' + 5
-
-local i = 1
-foreach s of local substitute {
-	local substitute`i' "`s'"
-	local i = `i' + 1
-} //提取 substitute1-substitute...
-
-dis as text _n "{hline}"
-dis as text `"{bf:Match and substitute information(`=cond(`=strmatch("`regex'","regex")',"regex mode","normal mode")')}"'
-dis as text "{hline}"
-forvalues i = 1/`groups_of_match' {
-	dis as text `"group`i': {result:"`match`i''"}{col `col1'}→{col `col2'}{result:"`substitute`i''"}"'
-}
-dis as text "{hline}" _n
 
 
 *文件读写简略信息输出
-#delimit ; 
-dis as text _n
-	"{hline}" _n
-	"{bf:Brief information for the read and written files}" _n
-	"{hline}" _n
+if `"`match'"' != "" {
+	#delimit ; 
+	dis as text _n
+		"{hline}" _n
+		"{bf:Brief information for the read and written files}" _n
+		"{hline}" _n
 
-	"The files that have been read:" _n 
-	_col(3) `"{result:`raw_using_str'}"' _n(2)
+		"The files that have been read:" _n 
+		_col(3) `"{result:`raw_using_str'}"' _n(2)
 
-	"The files that have been written:" _n 
-	_col(3) `"{result:`raw_saving_str'}"' _n(2)
+		"The files that have been written:" _n 
+		_col(3) `"{result:`raw_saving_str'}"' _n(2)
 
-	"The total number of lines whose content has changed (based on match and substitute, not delete):" _n
-	_col(3) "{result:`lines_total_change_num_str'}" _n
-	"{hline}" _n(2)
-;
-#delimit cr
+		"The total number of lines whose content has changed (based on match and substitute, not delete):" _n
+		_col(3) "{result:`lines_total_change_num_str'}" _n
+		"{hline}" _n(2)
+	;
+	#delimit cr
+}
+else {
+	#delimit ; 
+	dis as text _n
+		"{hline}" _n
+		"{bf:Information for the read and written files}" _n
+		"{hline}" _n
 
+		"The files that have been read:" _n 
+		_col(3) `"{result:`raw_using_str'}"' _n(2)
+
+		"The files that have been written:" _n 
+		_col(3) `"{result:`raw_saving_str'}"' _n
+		"{hline}"
+	;
+	#delimit cr
+}
+
+
+
+if ("`brief'" != "") | (`"`match'"' == "") {
+	exit
+} //如果含有 brief 选项或者 match 选项为空，则不输出以下结果
 
 *文件读写详细信息输出
 dis as text "{hline}"

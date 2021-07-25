@@ -3,6 +3,18 @@
 > 作者：王美庭  
 > Email: wangmeiting92@gmail.com
 
+## 2021 年 7 月 25 日更新信息
+
+1. 添加了 keepall、brief 选项
+2. 修复了读入文件过大的一些bug
+3. 允许了该命令只复制或附加部分行或完整的文本文件，而不进行匹配替换操作（参见下方的实例）
+4. 允许了该命令只删除空行或多余的空格，而不进行匹配替换操作（参见下方实例）
+
+## 其他事项汇总
+
+1. `lines(numlist)`选项最多只能选择 2500 行（Stata 自带的限制，可以`help limits`进行查看）
+2. 个人测试了一下对于单个 10 万行的 .tex 文件进行三组匹配替换的时间为 34.5s（三次平均），所以如果你要处理大量文件体量较大的文本文件的话，还是建议采用底层语言（如 C/C++）编写的文本处理命令。
+
 ## 一、引言
 
 我们的 .txt、.do、.tex、.m、.sh、.bat、.gitignore、.gitconfig 等都是文本文件。有时候我们需要对其中的内容进行查找替换（常用快捷键为 ctrl + h）,而我们又希望将其自动化，即只需要一些命令语句，即可实现对特定文件的特定内容实现替换。基于此目的，我们便书写了 `mas`（match and substitute）命令，该命令具有以下特点：
@@ -41,7 +53,9 @@ github install Meiting-Wang/mas
 ### （一）命令语法
 
 ```stata
-mas using filenames, saving(filenames) match(string) substitute(string) [lines(numlist) delete(string) regex quietly replace append]
+mas using filenames, saving(filenames) [ ///
+	match(string) substitute(string) lines(numlist) delete(string) ///
+    keepall regex quietly brief replace append ]
 ```
 
 > - `using`中的`filenames`: 输入要读入的文件名的格式，如`read.tex`、`read*.tex`、`..\read.tex`、`.\mydir1\read*.tex`、`X:\exercise\Stata\fas\read*.tex`等。如果文件名或路径有空格，则需加上双引号。
@@ -53,8 +67,10 @@ mas using filenames, saving(filenames) match(string) substitute(string) [lines(n
 - `substitute(string)`: 可以设置一个或多个要替换匹配条目的内容（这里条目的数量必须与匹配条目的数量相等）。若有多个条目，则每个条目必须加上双引号。
 - `lines(numlist)`：选择文本文件中特定行数的内容进行如上操作。
 - `delete(string)`：可以删除空行（当输入`blank_lines`或`bl`时）或多余的空格（当输入`extra_space`或`es`时）。
+- `keepall`：如果你选择了特定的行进行操作，该选项会将其余行以单纯复制的形式写入新文件中。
 - `regex`：可以采用正则表达式进行匹配替换。如果采用该模式，则`match(string)`和`substitute(string)`选项的输入必须要符合正则表达式的规范。
 - `quietly`：可以选择不在 Stata 界面上报告命令运行的结果。
+- `brief`：默认下命令运行之后会报告简洁和详细信息（如前面所述），该选项下将不会报告每一对读入文件和写入文件被匹配和替换的详细信息。
 - `replace`：如果`saving(filenames)`中的文件名已存在，则替换之。
 - `append`：如果`saving(filenames)`中的文件名已存在，则附加之。
 
@@ -63,7 +79,7 @@ mas using filenames, saving(filenames) match(string) substitute(string) [lines(n
 ## 四、实例
 
 ```stata
-*-----------------单个文件的示例-----------------
+*----------------单个文件测试---------------
 mas using read.tex, saving(write.tex) m(This) s(XX) replace //将 "read.tex" 中的 "This" 替换为 "XX"，并写入 "write.tex" 中
 mas using "read.tex", saving("write.tex") m("This") s("XX") replace //同上
 mas using "read.tex", saving("write.tex") m("This" "this" "\phi") s("XX" "YY" "b[1]") replace //将 "read.tex" 中的 "This" "this" "\phi" 分别替换为 "XX" "YY" "b[1]"，并写入 "write.tex" 中
@@ -71,19 +87,22 @@ mas using "read.tex", saving("write.tex") m("This" "this" "\phi") s("XX" "YY" "b
 mas using "read.tex", saving("write.tex") m("This" "this" "\phi") s("XX" "YY" "b[1]") l(7/13) d(es) replace //含义同上，但删除了多余的空格
 mas using "read.tex", saving("write.tex") m("This" "this" "\phi") s("XX" "YY" "b[1]") l(7/13) d(es bl) replace //含义同上，但删除了多余的空行
 mas using "read.tex", saving("write.tex") m("This" "this" "s[a-z]{6}e") s("XX" "YY" "b[1]") l(7/13) d(es bl) re replace //含义同上，但采用的是正则表达式匹配模式
+mas using "read.tex", saving("write.tex") m("This" "this" "s[a-z]{6}e") s("XX" "YY" "b[1]") l(7/13) d(es bl) re b replace //含义同上，但只在 Stata 界面上报告了读入和写入文件的简单的信息
 mas using "read.tex", saving("write.tex") m("This" "this" "s[a-z]{6}e") s("XX" "YY" "b[1]") l(7/13) d(es bl) re qui replace //含义同上，但没有在 Stata 界面上报告结果
+! del "write.tex" //删除生成的文件
 
 
-*---------------------多个文件的示例------------------------
+*-----------------多个文件测试----------------
 mas using "read*.tex", saving(,pre("pre_")) m("This") s("XX") replace //对当前目录下符合 "read*.tex" 的文件做查找替换操作。保存文件的命令格式为 "pre_原文件名.原后缀名"
 mas using "read*.tex", saving(,post("_post")) m("This") s("XX") replace //含义同上，但保存文件的命令格式为 "原文件名_post.原后缀名"
 mas using "read*.tex", saving(,post(".txt")) m("This") s("XX") replace //含义同上，但保存文件的命令格式为 "原文件名.txt"
 mas using "read*.tex", saving(,post("_post.txt")) m("This") s("XX") replace //含义同上，但保存文件的命令格式为 "原文件名_post.txt"
 mas using "read*.tex", saving(,pre(pre_) post("_post")) m("This") s("XX") replace //含义同上，但保存文件的命令格式为 "pre_原文件名_post.原后缀名"
 mas using "read*.tex", saving(,pre(pre_) post("_post.txt")) m("This") s("XX") replace //含义同上，但保存文件的命令格式为 "pre_原文件名_post.txt"
+! del "pre_*" "*.txt" "*_post.*" //删除生成的文件
 
 
-*------------------------带路径文件的示例-------------
+*--------------带路径文件的测试-----------
 mas using ".\read.tex", saving("write.tex") m("This") s("XX") replace
 mas using ".\read.tex", saving(".\mydir1\write.tex") m("This") s("XX") replace
 mas using ".\read.tex", saving("..\write.tex") m("This") s("XX") replace
@@ -92,21 +111,43 @@ mas using ".\read*.tex", saving(,pre("..\")) m("This") s("XX") replace
 mas using ".\read*.tex", saving(,pre("..\pre_")) m("This") s("XX") replace
 mas using ".\mydir1\read*.tex", saving(,pre(".\mydir2\")) m("sentence") s("YY") replace
 mas using "X:\exercise\Stata\mas\read*.tex", saving(,pre("X:\exercise\Stata\mas\mydir2\")) m("sentence") s("YYY") replace
+! del "write.tex" ".\mydir1\write.tex" "..\write.tex" //删除生成的文件
+! del ".\mydir1\read*.tex" "..\read*.tex" "..\pre_read*.tex" ".\mydir2\read*.tex" //删除生成的文件
+! del "X:\exercise\Stata\mas\mydir2\read*.tex" //删除生成的文件
 
 
-*--------------------replace 和 append 示例-----------------
+*---------------replace 和 append 测试(含有 match 和 substitute)-----------
 * 单个文件的 replace 和 append
 mas using "read.tex", saving("write.tex") m("This") s("XX") replace
 mas using "read.tex", saving("write.tex") m("sentence") s("YY") l(6/9) append
+! del "write.tex" //删除生成的文件
 
 * 多个文件的 replace 和 append
 mas using "read*.tex", saving(,pre("pre_")) m("This") s("XX") replace
 mas using "read*.tex", saving(,pre("pre_")) m("sentence") s("YY") l(2/7) append
+! del "pre_read*.tex" //删除生成的文件
 
 
-*----------------------获得返回值-------------------------------
+*-----------------只复制或附加文件(不含有 match 和 substitute)--------------
+mas using "read.tex", saving("write.tex") replace //复制文件
+mas using "read.tex", saving("write.tex") l(7/11) replace //选择特定的行进行复制
+mas using "read.tex", saving("write.tex") l(12/17) append //选择特定的行进行附加
+! del "write.tex"
+
+
+*-----------------只删除空行或多余的空格(不含有 match 和 substitute)--------------
+mas using "read.tex", saving("write.tex") d(es) replace //删除多余的空格
+mas using "read.tex", saving("write.tex") d(bl) replace //删除空行
+mas using "read.tex", saving("write.tex") d(es bl) replace //删除空行和多余的空格
+mas using "read.tex", saving("write.tex") d(es bl) l(5/9) replace //删除空行和多余的空格
+! del "write.tex"
+
+
+*------------获得返回值--------------
 mas using ".\read*.tex", saving(,pre(".\mydir1\")) m("This") s("XX") replace
-return list
+return list //获得返回值
+! del ".\mydir1\read*.tex" //删除生成的文件
+
 ```
 
 ## 五、输出展示

@@ -1,7 +1,8 @@
-* Description: This is a sub-program for mas.ado, aim at performing matching and substituting operations on text files.
+* Description: This is a sub-program for mas.ado, aiming at performing matching and substituting operations in text files.
 * Author: Meiting Wang, doctor, Institute for Economic and Social Research, Jinan University
 * Email: wangmeiting92@gmail.com
-* Created on July 15, 2021
+* Created on July 18, 2021
+* Updated on July 25, 2021
 
 
 
@@ -10,7 +11,7 @@ version 16.0
 
 syntax using/, saving(string) ///
 	Match(string asis) Substitute(string asis) ///
-	[replace append Lines(numlist integer >0 ascending) ///
+	[replace append Lines(numlist integer >0 ascending) Keepall ///
 	Delete(string) REgex]
 
 /*
@@ -35,17 +36,6 @@ syntax using/, saving(string) ///
 
 *--------------------------前期程序------------------------------
 * 错误信息处理
-preserve
-clear
-qui set obs 1
-gen v = fileread(`"`using'"') //fileread函数里面的文件名可以包含路径，但无论其中是否包含空格都必须使用双引号
-if ustrregexm(`"`=v[1]'"',"^\s*$") {
-	dis as error "The read file is empty"
-	restore
-	error 9999
-}
-restore //这里可以保证所读取的文件存在且含有可见字符
-
 if ~ustrregexm(`"`match'"',`"^\s*((("[^"]+?")(\s+("[^"]+?"))*)|([^"]+))\s*$"') {
 	dis as error "match option syntax error"
 	error 9999
@@ -62,6 +52,11 @@ if "`delete'" != "" {
 		error 9999
 	} //设定输入时 delete 需符合特定的格式
 }
+
+if ("`lines'" == "") & ("`keepall'" != "") {
+	dis `"{error:Under the setting of option {bf:lines}, option {bf:keepall} can be used.}"'
+	error 9999
+} //在设定lines之后，keepall才可以被使用
 
 if ("`replace'" != "") & ("`append'" != "") {
 	dis `"{error:Option {bf:`replace'} and {bf:`append'} cannot exist at the same time}"'
@@ -101,8 +96,7 @@ foreach s of local substitute {
 
 
 * 如果 lines 非空，提取其所选取的最大行号
-if "`lines'" != "" {
-	qui dis ustrregexm("`lines'","(\d+)$")
+if ustrregexm("`lines'","(\d+)$") {
 	local max_num_of_select_lines = ustrregexs(1)
 }
 
@@ -131,9 +125,7 @@ if "`append'" != "" {
 file read `handle1' line
 while r(eof) == 0 {
 	local linenum_read = `linenum_read' + 1
-
-	if "`lines'" == "" { //没有选定具体行号进行替换的情况
-
+	if "`lines'" == "" { //I.没有选定具体行号进行替换的情况
 		if ustrregexm("`delete'","\b(bl|blank_lines)\b") {
 			if ustrregexm(`"`line'"',"^\s*$") {
 				file read `handle1' line
@@ -170,17 +162,64 @@ while r(eof) == 0 {
 		if r(eof) == 0 {
 			file write `handle2' _n
 		} //如果下一行不是文本末端，才对上一行加上 newline
-
 	}
-	else { //选择了具体行号进行替换的情况
-		if ustrregexm("`delete'","\b(bl|blank_lines)\b") {
-			if ustrregexm(`"`line'"',"^\s*$") {
-				file read `handle1' line
-				continue
-			} //在 bl 设定下，如果对应行仅含不可见字符，则后面不写入
-		}
+	else if "`keepall'" != "" { //II.选择了具体行号进行替换，且keepall
+		if ustrregexm("`lines'","\b`linenum_read'\b") { //II.1如果linenum_read与lines匹配上了，则执行匹配替换，且写入saving文件中
+			if ustrregexm("`delete'","\b(bl|blank_lines)\b") {
+				if ustrregexm(`"`line'"',"^\s*$") {
+					file read `handle1' line
+					continue
+				} //在 delete(bl) 设定下，如果对应行仅含不可见字符，则后面不写入
+			}
 
-		if ustrregexm("`lines'","\b`linenum_read'\b") {
+			local change_status = 0
+			local linenum_write = `linenum_write' + 1
+
+			forvalues i = 1/`groups_of_match' {
+				if "`regex'" != "" {
+					local change_status = `change_status' + ustrregexm(`"`line'"',"`match`i''")
+					local line = ustrregexra(`"`line'"',"`match`i''","`substitute`i''")
+				}
+				else {
+					local change_status = `change_status' + ustrpos(`"`line'"',"`match`i''")
+					local line = usubinstr(`"`line'"',"`match`i''","`substitute`i''",.)
+				}
+			}
+
+			if `change_status' > 0 {
+				local lines_changed_for_original "`lines_changed_for_original'`linenum_read', "
+				local lines_changed_for_generated "`lines_changed_for_generated'`linenum_write', "
+				local lines_total_change_num = `lines_total_change_num' + 1
+			}
+			
+			if ustrregexm("`delete'","\b(es|extra_spaces)\b") {
+				local line = strtrim(ustrregexra(`"`line'"',"\s+"," "))
+			} //在 es 设定下，如果对应行有多余空白，则删除之
+			file write `handle2' `"`line'"'
+			file read `handle1' line
+			if r(eof) == 0 {
+				file write `handle2' _n
+			} //如果下一行不是文本末端，才对上一行加上 newline
+		}
+		else { //II.2如果linenum_read与lines没有匹配上，则直接写入saving文件中
+			local linenum_write = `linenum_write' + 1
+			file write `handle2' `"`line'"'
+
+			file read `handle1' line
+			if r(eof) == 0 {
+				file write `handle2' _n
+			} //如果下一行不是文本末端，才对上一行加上 newline
+		}
+	}
+	else { //III.选择了具体行号进行替换，但没有keepall
+		if ustrregexm("`lines'","\b`linenum_read'\b") { //如果linenum_read与lines匹配上了，则执行匹配替换，且写入saving文件中
+			if ustrregexm("`delete'","\b(bl|blank_lines)\b") {
+				if ustrregexm(`"`line'"',"^\s*$") {
+					file read `handle1' line
+					continue
+				} //在 bl 设定下，如果对应行仅含不可见字符，则后面不写入
+			}
+
 			local change_status = 0
 			local linenum_write = `linenum_write' + 1
 
