@@ -10,7 +10,9 @@
 {title:Syntax}
 
 {p 8 10 2}
-{cmd:mas} {bf:using} {it:{help filenames}}, {opth saving:(filenames)} [{opth m:atch(strings:string)} {opth s:ubstitute(strings:string)} {opth l:ines(numlist)} {opth d:elete(string)} {opt k:eepall} {opt re:gex} {opt qui:etly} {opt b:rief} {opt replace} {opt append}]
+{cmd:mas} {bf:using} {it:{help filenames}}, {opth saving:(filenames)} [ ///{break}
+{opth m:atch(strings:string)} {opth s:ubstitute(strings:string)} {opth l:ines(numlist)} {opth d:elete(string)} ///{break}
+{opt k:eepall} {opt re:gex} {opt qui:etly} {opt b:rief} {opt replace} {opt append} ]
 
 
 {* -----------------------------Contents------------------------------------ *}{...}
