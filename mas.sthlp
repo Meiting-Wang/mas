@@ -31,8 +31,13 @@
 {p 4 4 2}
 {cmd:mas} can read the "using filenames", and then write the read content into the "saving filenames" after matching and substituting operations. The filenames should be the name of the text files such as {bf:.txt}, {bf:.tex}, {bf:.do}, {bf:.sh}, etc. 
 
-{p 4 4 2}
-It can not only achieve one or more matching replacements, but also (1) select specific lines to execute; (2) delete extra spaces or blank lines; (3) use regex mode; (4) support wildcards and path when input filenames; (5) have a lot result in {bf:r()} for later programming use.
+{p 4 6 2}
+It can not only achieve one or more matching replacements, but also{break}
+(1) select specific lines to execute;{break}
+(2) delete extra spaces or blank lines;{break}
+(3) use regex mode;{break}
+(4) support wildcards and path when input filenames;{break}
+(5) have a lot result in {bf:r()} for later programming use.
 
 {p 4 4 2}
 It is worth noting that "using filenames" and "saving filenames" should not be the same and this command can only be used in version 16.0 or later.
@@ -44,7 +49,7 @@ It is worth noting that "using filenames" and "saving filenames" should not be t
 {synoptset 20}{...}
 {synopthdr}
 {synoptline}
-{synopt :{opth saving:(filenames)}}Set the filenames to be written, which supports paths. If {bf:using} includes multiple files, this option should use {opth pre:(strings:string)} or {opth post:(strings:string)} sub-options, such as {bf:saving(,pre(pre_))}.{p_end}
+{synopt :{opth saving:(filenames)}}Set the filenames to be written, which supports paths. If {bf:using} includes multiple files, sub-options {opth pre:(strings:string)} or {opth post:(strings:string)} should be used.{p_end}
 {synopt :{opth m:atch(strings:string)}}Set the content to be matched. One or more items are supported. If there are more than one item, each item needs to be surrounded by double quotation marks.{p_end}
 {synopt :{opth s:ubstitute(strings:string)}}Set the content to replace match items, and the number of this option items should be equal to the the number of {opt match} items. If there are more than one item, each item needs to be surrounded by double quotation marks.{p_end}
 {synopt :{opth l:ines(numlist)}}Select specific lines to execute{p_end}
